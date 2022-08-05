@@ -140,8 +140,8 @@ else
             require "fileutils"
             Dir.chdir(File.expand_path(*FileUtils.mkdir_p(config[:output][:path]))) do |output|
                 dronefiles.each do |file|
-                    Dir.chdir(File.expand_path(*FileUtils.mkdir_p(File.join(output, file[:repository])))) do |repo|
-                        File.write(File.join(".", file[:path]), file[:content])
+                    Dir.chdir(File.expand_path(*FileUtils.mkdir_p(File.join(output, file["repository"])))) do |repo|
+                        File.write(File.join(".", file["path"]), file["content"])
                     end
                 end
             end
