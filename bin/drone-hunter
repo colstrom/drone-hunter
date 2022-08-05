@@ -71,6 +71,9 @@ config = {
         auto_paginate: boolean_from(ENV.fetch("DRONE_HUNTER_GITHUB_AUTO_PAGINATE", "true")),
         access_token: github_access_token_from_environment
     },
+    ignore: {
+        archived: boolean_from(ENV.fetch("DRONE_HUNTER_IGNORE_ARCHIVED", "false"))
+    },
     log: {
         level: log_level_from(ENV.fetch("DRONE_HUNTER_LOG_LEVEL", "info"))
     },
@@ -93,6 +96,7 @@ OptionParser.new do |options|
     options.on("-o", "--output-format=FORMAT",      "env: DRONE_HUNTER_OUTPUT_FORMAT")        { |argument| config[:output][:format]        = output_format_from(argument) }
     options.on("-p", "--output-path=PATH",          "env: DRONE_HUNTER_OUTPUT_PATH")          { |argument| config[:output][:path]          = File.expand_path(argument) }
     options.on("-N", "--[no-]output-normalize",     "env: DRONE_HUNTER_OUTPUT_NORMALIZE")     { |argument| config[:output][:normalize]     = argument }
+    options.on("-A", "--[no-]ignore-archived",      "env: DRONE_HUNTER_IGNORE_ARCHIVED")      { |argument| config[:ignore][:archived]      = argument }
 end.parse!
 
 #################
@@ -134,7 +138,7 @@ cache = Moneta.new(:File, dir: config[:cache][:dir])
 # Main Program #
 ################
 
-hunt = DroneHunter.new(owners: ARGV, log: log, github: github, cache: cache)
+hunt = DroneHunter.new(owners: ARGV, log: log, github: github, cache: cache, ignore: config[:ignore])
 
 if config[:hacking]
     require "pry"

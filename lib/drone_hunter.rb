@@ -21,12 +21,18 @@ class DroneHunter
         @github ||= options.fetch(:client) { Octokit::Client.new(auto_paginate: true) }
         @cache  ||= options.fetch(:cache) { Moneta.new(:File, dir: 'drone-hunter.cache') }
         @owners ||= Set.new(options.fetch(:owners, []))
+        @ignoring ||= { archived: false }.merge(options.fetch(:ignore, {}))
     end
 
     attr_reader :log
     attr_reader :github
     attr_reader :cache
     attr_reader :owners
+    attr_reader :ignoring
+
+    def ignoring_archived?
+        ignoring.fetch(:archived, false)
+    end
 
     def cached(key, *rest, &block)
         if cache.key?(key)
@@ -41,7 +47,9 @@ class DroneHunter
     def repositories(owner = nil)
         case owner
         when String then cached("repositories/#{owner}") { github.repositories(owner) }
-        when nil    then owners.flat_map { |owner| repositories(owner) }
+        when nil    then owners.flat_map { |owner| repositories(owner) }.reject do |repo|
+            ignoring_archived? && repo.archived
+        end
         else raise TypeError
         end
     end
