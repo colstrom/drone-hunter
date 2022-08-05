@@ -19,6 +19,6 @@ Gem::Specification.new do |gem|
   
     gem.require_paths = ['lib']
   
-    gem.add_runtime_dependency 'octokit', '~> 4.25', '>= 4.25.1'
+    gem.add_runtime_dependency 'octokit', '>= 4.25.1', '< 6.0'
     gem.add_runtime_dependency 'moneta',  '~> 1.5',  '>= 1.5.1'
 end
