@@ -76,6 +76,12 @@ drone-hunter.output/rancherlabs/support-tools/.drone.yml
 
 The only limits are your imagination (and the GitHub API Rate Limit).
 
+## Output Normalization
+
+As of `0.2.0`, you can pass use the `--output-normalize` option to
+remove formatting differences in the dronefiles. This reduces false
+negatives when trying to identify which files are the same.
+
 ## License
 
 `drone-hunter` is available under the [MIT License](https://tldrlegal.com/license/mit-license). See `LICENSE.txt` for the full text.

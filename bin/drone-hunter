@@ -49,6 +49,15 @@ def log_level_from(input)
     end
 end
 
+# accepts the same values as YAML: https://yaml.org/type/bool.html
+def boolean_from(input)
+    case input
+    when /1|true|yes|on|enabled?/i   then true
+    when /0|false|no|off|disabled?/i then false
+    else raise NotImplementedError
+    end
+end
+
 #########################
 # Default Configuration #
 #########################
@@ -59,7 +68,7 @@ config = {
         dir: File.expand_path(ENV.fetch("DRONE_HUNTER_CACHE_DIR", './drone-hunter.cache'))
     },
     github: {
-        auto_paginate: true,
+        auto_paginate: boolean_from(ENV.fetch("DRONE_HUNTER_GITHUB_AUTO_PAGINATE", "true")),
         access_token: github_access_token_from_environment
     },
     log: {
@@ -68,6 +77,7 @@ config = {
     output: {
         format: output_format_from(ENV.fetch("DRONE_HUNTER_OUTPUT_FORMAT", "json")),
         path: File.expand_path(ENV.fetch("DRONE_HUNTER_OUTPUT_PATH", "./drone-hunter.output")),
+        normalize: boolean_from(ENV.fetch("DRONE_HUNTER_OUTPUT_NORMALIZE", "false")),
     }
 }
 
@@ -76,11 +86,13 @@ config = {
 ################################
 
 OptionParser.new do |options|
-    options.on("-C", "--cache-dir=DIR",             "env: DRONE_HUNTER_CACHE_DIR")           { |argument| config[:cache][:dir]           = File.expand_path(argument) }
-    options.on(      "--github-access-token=TOKEN", "env: DRONE_HUNTER_GITHUB_ACCESS_TOKEN") { |argument| config[:github][:access_token] = argument }
-    options.on("-L", "--log-level=LEVEL",           "env: DRONE_HUNTER_LOG_LEVEL")           { |argument| config[:log][:level]           = log_level_from(argument) }
-    options.on("-o", "--output-format=FORMAT",      "env: DRONE_HUNTER_OUTPUT_FORMAT")       { |argument| config[:output][:format]       = output_format_from(argument) }
-    options.on("-p", "--output-path=PATH",          "env: DRONE_HUNTER_OUTPUT_PATH")         { |argument| config[:output][:path]         = File.expand_path(argument) }
+    options.on("-C", "--cache-dir=DIR",             "env: DRONE_HUNTER_CACHE_DIR")            { |argument| config[:cache][:dir]            = File.expand_path(argument) }
+    options.on(      "--github-access-token=TOKEN", "env: DRONE_HUNTER_GITHUB_ACCESS_TOKEN")  { |argument| config[:github][:access_token]  = argument }
+    options.on(      "--[no-]github-auto-paginate", "env: DRONE_HUNTER_GITHUB_AUTO_PAGINATE") { |argument| config[:github][:auto_paginate] = argument}
+    options.on("-L", "--log-level=LEVEL",           "env: DRONE_HUNTER_LOG_LEVEL")            { |argument| config[:log][:level]            = log_level_from(argument) }
+    options.on("-o", "--output-format=FORMAT",      "env: DRONE_HUNTER_OUTPUT_FORMAT")        { |argument| config[:output][:format]        = output_format_from(argument) }
+    options.on("-p", "--output-path=PATH",          "env: DRONE_HUNTER_OUTPUT_PATH")          { |argument| config[:output][:path]          = File.expand_path(argument) }
+    options.on("-N", "--[no-]output-normalize",     "env: DRONE_HUNTER_OUTPUT_NORMALIZE")     { |argument| config[:output][:normalize]     = argument }
 end.parse!
 
 #################
@@ -128,7 +140,14 @@ if config[:hacking]
     require "pry"
     binding.pry
 else
-    hunt.dronefiles.then do |dronefiles|
+    hunt.dronefiles.each do |dronefile|
+        if config[:output][:normalize]
+            require "yaml"
+            original = dronefile["content"]
+            normalized = YAML.dump(YAML.load(original))
+            dronefile["content"] = normalized
+        end
+    end.then do |dronefiles|
         case config[:output][:format]
         when :JSON
             require "json"
