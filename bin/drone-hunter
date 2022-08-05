@@ -1,0 +1,151 @@
+#! /usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+
+#########################
+# Ruby Standard Library #
+#########################
+
+require "logger"
+require "optparse"
+
+#########################
+# Internal Dependencies #
+#########################
+
+require_relative "../lib/drone_hunter"
+
+def github_access_token_from_environment
+    # prefer a token designated for this program
+    ENV.fetch("DRONE_HUNTER_GITHUB_ACCESS_TOKEN") do
+        # but accept one that isn't designated for any particular use
+        ENV.fetch("GITHUB_ACCESS_TOKEN") do
+            # or accept one designated for the underlying library
+            ENV.fetch("OCTOKIT_ACCESS_TOKEN") do
+                # or play nice with Terraform's GitHub Provider
+                ENV.fetch("GITHUB_TOKEN") do
+                    # well... a token isn't strictly REQUIRED...
+                    nil
+                end
+            end
+        end
+    end
+end
+
+def output_format_from(input)
+    case input
+    when /j(son)?/i  then :JSON
+    when /y(a?ml)?/i then :YAML
+    when /f(ile)?(s(ystem)?)?/i then :FileSystem
+    else raise NotImplementedError
+    end
+end
+
+def log_level_from(input)
+    case input
+    when /warn/i  then Logger::WARN
+    when /info/i  then Logger::INFO
+    when /debug/i then Logger::DEBUG
+    else raise NotImplementedError
+    end
+end
+
+#########################
+# Default Configuration #
+#########################
+
+config = {
+    hacking: (ENV["HACKING"] ? true : false),
+    cache: {
+        dir: File.expand_path(ENV.fetch("DRONE_HUNTER_CACHE_DIR", './drone-hunter.cache'))
+    },
+    github: {
+        auto_paginate: true,
+        access_token: github_access_token_from_environment
+    },
+    log: {
+        level: log_level_from(ENV.fetch("DRONE_HUNTER_LOG_LEVEL", "info"))
+    },
+    output: {
+        format: output_format_from(ENV.fetch("DRONE_HUNTER_OUTPUT_FORMAT", "json")),
+        path: File.expand_path(ENV.fetch("DRONE_HUNTER_OUTPUT_PATH", "./drone-hunter.output")),
+    }
+}
+
+################################
+# Options from the Commandline #
+################################
+
+OptionParser.new do |options|
+    options.on("-C", "--cache-dir=DIR",             "env: DRONE_HUNTER_CACHE_DIR")           { |argument| config[:cache][:dir]           = File.expand_path(argument) }
+    options.on(      "--github-access-token=TOKEN", "env: DRONE_HUNTER_GITHUB_ACCESS_TOKEN") { |argument| config[:github][:access_token] = argument }
+    options.on("-L", "--log-level=LEVEL",           "env: DRONE_HUNTER_LOG_LEVEL")           { |argument| config[:log][:level]           = log_level_from(argument) }
+    options.on("-o", "--output-format=FORMAT",      "env: DRONE_HUNTER_OUTPUT_FORMAT")       { |argument| config[:output][:format]       = output_format_from(argument) }
+    options.on("-p", "--output-path=PATH",          "env: DRONE_HUNTER_OUTPUT_PATH")         { |argument| config[:output][:path]         = File.expand_path(argument) }
+end.parse!
+
+#################
+# Sanity Checks #
+#################
+
+if ARGV.empty?
+    STDERR.puts "#{File.basename($PROGRAM_NAME)} <owner ...>"
+    exit Errno::EINVAL::Errno 
+end
+
+#################
+# Logging Setup #
+#################
+
+log = Logger::new(STDERR)
+log.level = config[:log][:level]
+
+################
+# GitHub Setup #
+################
+
+# the GitHub API has a pretty low rate limit for unauthenticated calls,
+# and we can exhaust that very quickly when doing what we need to do.
+# Warn the user about this missing configuration as a courtesy.
+unless config.dig(:github, :access_token)
+    log.warn("No GitHub Access Token provided. Expect rate limiting.")
+end
+
+github = Octokit::Client.new(**config[:github])
+
+#################
+# Caching Setup #
+#################
+
+cache = Moneta.new(:File, dir: config[:cache][:dir])
+
+################
+# Main Program #
+################
+
+hunt = DroneHunter.new(owners: ARGV, log: log, github: github, cache: cache)
+
+if config[:hacking]
+    require "pry"
+    binding.pry
+else
+    hunt.dronefiles.then do |dronefiles|
+        case config[:output][:format]
+        when :JSON
+            require "json"
+            STDOUT.puts JSON.pretty_generate dronefiles
+        when :YAML
+            require "yaml"
+            STDOUT.puts YAML.dump dronefiles
+        when :FileSystem
+            require "fileutils"
+            Dir.chdir(File.expand_path(*FileUtils.mkdir_p(config[:output][:path]))) do |output|
+                dronefiles.each do |file|
+                    Dir.chdir(File.expand_path(*FileUtils.mkdir_p(File.join(output, file[:repository])))) do |repo|
+                        File.write(File.join(".", file[:path]), file[:content])
+                    end
+                end
+            end
+        else raise NotImplementedError
+        end
+    end
+end
