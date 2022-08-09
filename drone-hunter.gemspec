@@ -6,7 +6,7 @@ Gem::Specification.new do |gem|
     end.chomp
 
     unless tag.match?(/[.]/)
-        tag = "0.0.0+" + tag
+        tag = "0.0.0-pre+" + tag
     end
   
     gem.name          = 'drone-hunter'
