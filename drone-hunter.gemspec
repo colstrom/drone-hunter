@@ -1,14 +1,6 @@
 Gem::Specification.new do |gem|
-    tag = if ENV["GITHUB_WORKFLOW"]
-        `git describe --tags --always`
-    else
-        `git describe --tags --abbrev=0`
-    end.chomp
+    tag = `git describe --tags --always`.chomp
 
-    unless tag.match?(/[.]/)
-        tag = "0.0.0-pre+" + tag
-    end
-  
     gem.name          = 'drone-hunter'
     gem.homepage      = 'https://github.com/colstrom/drone-hunter'
     gem.summary       = 'Hunts for Drone CI files across many repositories'
