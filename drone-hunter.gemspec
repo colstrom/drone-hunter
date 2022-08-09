@@ -5,7 +5,7 @@ Gem::Specification.new do |gem|
         `git describe --tags --abbrev=0`
     end.chomp
 
-    if tag.match?(/[.]/)
+    unless tag.match?(/[.]/)
         tag = "0.0.0+" + tag
     end
   
