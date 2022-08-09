@@ -1,5 +1,13 @@
 Gem::Specification.new do |gem|
-    tag = `git describe --tags --always`.chomp
+    tag = if ENV["GITHUB_WORKFLOW"]
+        `git describe --tags --always`
+    else
+        `git describe --tags --abbrev=0`
+    end.chomp
+
+    if tag.match?(/[.]/)
+        tag = "0.0.0+" + tag
+    end
   
     gem.name          = 'drone-hunter'
     gem.homepage      = 'https://github.com/colstrom/drone-hunter'
