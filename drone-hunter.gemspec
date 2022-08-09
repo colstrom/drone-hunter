@@ -1,5 +1,5 @@
 Gem::Specification.new do |gem|
-    tag = `git describe --tags --abbrev=0`.chomp
+    tag = `git describe --tags --always`.chomp
   
     gem.name          = 'drone-hunter'
     gem.homepage      = 'https://github.com/colstrom/drone-hunter'
