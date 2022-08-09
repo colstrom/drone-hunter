@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.4.0
+
+- [feature] added `--match-basename` option to override file basename filter.
+- [feature] added `--match-suffix` option to override file suffix filter.
+
 ## 0.3.0
 
 - [feature] added `--ignore-archived` option to skip archived repositories.

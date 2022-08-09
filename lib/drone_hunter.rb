@@ -7,6 +7,7 @@
 require "base64"
 require "logger"
 require "set"
+require "yaml"
 
 #########################
 # External Dependencies #
@@ -22,6 +23,7 @@ class DroneHunter
         @cache  ||= options.fetch(:cache) { Moneta.new(:File, dir: 'drone-hunter.cache') }
         @owners ||= Set.new(options.fetch(:owners, []))
         @ignoring ||= { archived: false }.merge(options.fetch(:ignore, {}))
+        @match  ||= { basename: /drone/, suffix: /[.]ya?ml$/ }.merge(options.fetch(:match, {}))
     end
 
     attr_reader :log
@@ -29,6 +31,7 @@ class DroneHunter
     attr_reader :cache
     attr_reader :owners
     attr_reader :ignoring
+    attr_reader :match
 
     def ignoring_archived?
         ignoring.fetch(:archived, false)
@@ -81,8 +84,8 @@ class DroneHunter
     def blobs
         trees.map do |repo, tree|
             blobs = tree
-                .select { |entry| entry.path.match?(/ya?ml$/) }
-                .select { |entry| entry.path.match?(/drone/) }
+                .select { |entry| entry.path.match?(match[:suffix]) }
+                .select { |entry| entry.path.match?(match[:basename]) }
                 .map do |entry| 
                     {
                         entry.path => cached("blob/#{repo}/#{entry.sha}") { github.blob(repo, entry.sha) }

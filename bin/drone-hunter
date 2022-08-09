@@ -67,6 +67,10 @@ config = {
     cache: {
         dir: File.expand_path(ENV.fetch("DRONE_HUNTER_CACHE_DIR", './drone-hunter.cache'))
     },
+    match: {
+        basename: Regexp.new(ENV.fetch("DRONE_HUNTER_MATCH_BASENAME", "drone")),
+        suffix: Regexp.new(ENV.fetch("DRONE_HUNTER_MATCH_SUFFIX", "[.]ya?ml") + "$")
+    },
     github: {
         auto_paginate: boolean_from(ENV.fetch("DRONE_HUNTER_GITHUB_AUTO_PAGINATE", "true")),
         access_token: github_access_token_from_environment
@@ -97,6 +101,8 @@ OptionParser.new do |options|
     options.on("-p", "--output-path=PATH",          "env: DRONE_HUNTER_OUTPUT_PATH")          { |argument| config[:output][:path]          = File.expand_path(argument) }
     options.on("-N", "--[no-]output-normalize",     "env: DRONE_HUNTER_OUTPUT_NORMALIZE")     { |argument| config[:output][:normalize]     = argument }
     options.on("-A", "--[no-]ignore-archived",      "env: DRONE_HUNTER_IGNORE_ARCHIVED")      { |argument| config[:ignore][:archived]      = argument }
+    options.on("-B", "--match-basename=REGEXP",     "env: DRONE_HUNTER_MATCH_BASENAME")       { |argument| config[:match][:basename]       = Regexp.new(argument) }
+    options.on("-S", "--match-suffix=REGEXP",       "env: DRONE_HUNTER_MATCH_SUFFIX")         { |argument| config[:match][:suffix]         = Regexp.new(argument + "$") }
 end.parse!
 
 #################
@@ -138,7 +144,7 @@ cache = Moneta.new(:File, dir: config[:cache][:dir])
 # Main Program #
 ################
 
-hunt = DroneHunter.new(owners: ARGV, log: log, github: github, cache: cache, ignore: config[:ignore])
+hunt = DroneHunter.new(owners: ARGV, log: log, github: github, cache: cache, ignore: config[:ignore], match: config[:match])
 
 if config[:hacking]
     require "pry"
